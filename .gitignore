@@ -1,0 +1,5 @@
+*.jcoDestination
+*.class
+*/target/
+nb-configuration.xml
+*.trc
