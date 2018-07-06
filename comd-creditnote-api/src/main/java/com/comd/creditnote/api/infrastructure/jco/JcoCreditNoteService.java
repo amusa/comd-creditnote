@@ -14,6 +14,7 @@ import com.sap.conn.jco.JCoTable;
 import com.sap.conn.jco.ext.DestinationDataProvider;
 import com.comd.creditnote.api.services.CreditNoteService;
 import com.comd.creditnote.lib.v1.CreditNote;
+import com.sap.conn.jco.JCoContext;
 import com.sap.conn.jco.JCoStructure;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -179,13 +180,15 @@ public class JcoCreditNoteService implements CreditNoteService {
 
     @Override
     public String post(String blDate, String vesselId, String customerId, String invoice, double amount) throws JCoException {
-        logger.log(Level.INFO, 
+        logger.log(Level.INFO,
                 "Service invoked with parameters: blDate={0}, vesselId={1}, customerId={2}, Invoice#={3}, Amount={4}",
                 new Object[]{blDate, vesselId, customerId, invoice, amount});
 
         String returnMessage = null;
         JCoDestination destination = JCoDestinationManager.getDestination(sapRfcDestination);
         JCoFunction function = destination.getRepository().getFunction("BAPI_ACC_DOCUMENT_POST");
+        JCoFunction bapiTransactionCommit = destination.getRepository().getFunction("BAPI_TRANSACTION_COMMIT");
+        JCoFunction bapiTransactionRollback = destination.getRepository().getFunction("BAPI_TRANSACTION_ROLLBACK");
 
         if (function == null) {
             logger.log(Level.INFO, "BAPI_ACC_DOCUMENT_POST not found in SAP.");
@@ -246,7 +249,7 @@ public class JcoCreditNoteService implements CreditNoteService {
         currencyAmount.appendRow();
         currencyAmount.setValue("ITEMNO_ACC", "001");
         currencyAmount.setValue("CURRENCY", "USD.");
-        currencyAmount.setValue("AMT_DOCCUR", Math.abs(amount) * -1);
+        currencyAmount.setValue("AMT_DOCCUR", Math.abs(amount));
 
         logger.log(Level.INFO, "BAPI_ACC_DOCUMENT_POST Debit CurrencyAmount set {0}.", currencyAmount);
 
@@ -254,14 +257,24 @@ public class JcoCreditNoteService implements CreditNoteService {
         currencyAmount.appendRow();
         currencyAmount.setValue("ITEMNO_ACC", "002");
         currencyAmount.setValue("CURRENCY", "USD.");
-        currencyAmount.setValue("AMT_DOCCUR", Math.abs(amount));
+        currencyAmount.setValue("AMT_DOCCUR", Math.abs(amount) * -1);
 
         logger.log(Level.INFO, "BAPI_ACC_DOCUMENT_POST Credit CurrencyAmount set {0}.", currencyAmount);
 
         try {
-            function.execute(destination);
-        } catch (AbapException e) {
-            logger.log(Level.SEVERE, "Error executing BAPI_ACC_DOCUMENT_POST.");
+            JCoContext.begin(destination);
+            try {
+                function.execute(destination);
+                bapiTransactionCommit.getImportParameterList().setValue("WAIT", "10");
+                bapiTransactionCommit.execute(destination);
+            } catch (AbapException ex) {
+                logger.log(Level.SEVERE, "Error executing BAPI_ACC_DOCUMENT_POST.");
+                bapiTransactionRollback.execute(destination);
+            }
+        } catch (JCoException ex) {
+
+        } finally {
+            JCoContext.end(destination);
         }
 
         JCoTable returnTable = function.getTableParameterList().getTable("RETURN");
