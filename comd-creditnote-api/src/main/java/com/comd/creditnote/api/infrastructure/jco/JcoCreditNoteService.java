@@ -14,12 +14,19 @@ import com.sap.conn.jco.JCoTable;
 import com.sap.conn.jco.ext.DestinationDataProvider;
 import com.comd.creditnote.api.services.CreditNoteService;
 import com.comd.creditnote.lib.v1.CreditNote;
+import com.sap.conn.jco.JCoStructure;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Properties;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.annotation.PostConstruct;
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
@@ -31,6 +38,8 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
  */
 @ApplicationScoped
 public class JcoCreditNoteService implements CreditNoteService {
+
+    private static final Logger logger = Logger.getLogger(JcoCreditNoteService.class.getName());
 
     @Inject
     @ConfigProperty(name = "SAP_RFC_DESTINATION")
@@ -80,6 +89,8 @@ public class JcoCreditNoteService implements CreditNoteService {
         connectProperties.setProperty(DestinationDataProvider.JCO_POOL_CAPACITY, jcoPoolCapacity);
         connectProperties.setProperty(DestinationDataProvider.JCO_PEAK_LIMIT, jcoPeakLimit);
         createDestinationDataFile(sapRfcDestination, connectProperties);
+
+        logger.log(Level.INFO, "Service initialized... {0}", connectProperties);
     }
 
     private void createDestinationDataFile(String destinationName, Properties connectProperties) {
@@ -90,6 +101,7 @@ public class JcoCreditNoteService implements CreditNoteService {
             connectProperties.store(fos, "SAP jco destination config");
             fos.close();
         } catch (IOException e) {
+            logger.log(Level.INFO, "Unable to create the destination files");
             throw new RuntimeException("Unable to create the destination files", e);
         }
     }
@@ -99,9 +111,9 @@ public class JcoCreditNoteService implements CreditNoteService {
         List<CreditNote> creditNotes = new ArrayList<>();
 
         JCoDestination destination = JCoDestinationManager.getDestination(sapRfcDestination);
-        JCoFunction function = destination.getRepository().getFunction("BAPI_DELIVERY_GETLIST");
+        JCoFunction function = destination.getRepository().getFunction("BAPI_ACC_DOCUMENT_POST");
         if (function == null) {
-            throw new RuntimeException("BAPI_DELIVERY_GETLIST not found in SAP.");
+            throw new RuntimeException("BAPI_ACC_DOCUMENT_POST not found in SAP.");
         }
 
         if (customerId != null) {
@@ -141,7 +153,6 @@ public class JcoCreditNoteService implements CreditNoteService {
 
         for (int i = 0; i < codes.getNumRows(); i++, codes.nextRow()) {
             CreditNote creditNote = new CreditNote();
-            
 
             creditNotes.add(creditNote);
 
@@ -163,7 +174,118 @@ public class JcoCreditNoteService implements CreditNoteService {
 
     @Override
     public void utilize(String documentNumber) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+
+    }
+
+    @Override
+    public String post(String blDate, String vesselId, String customerId, String invoice, double amount) throws JCoException {
+        logger.log(Level.INFO, 
+                "Service invoked with parameters: blDate={0}, vesselId={1}, customerId={2}, Invoice#={3}, Amount={4}",
+                new Object[]{blDate, vesselId, customerId, invoice, amount});
+
+        String returnMessage = null;
+        JCoDestination destination = JCoDestinationManager.getDestination(sapRfcDestination);
+        JCoFunction function = destination.getRepository().getFunction("BAPI_ACC_DOCUMENT_POST");
+
+        if (function == null) {
+            logger.log(Level.INFO, "BAPI_ACC_DOCUMENT_POST not found in SAP.");
+            throw new RuntimeException("BAPI_ACC_DOCUMENT_POST not found in SAP.");
+        }
+
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+
+        //HEADER
+        JCoStructure header = function.getImportParameterList().getStructure("DOCUMENTHEADER");
+        header.setValue("USERNAME", "amusa"); //TODO:use login user name
+        header.setValue("HEADER_TXT",
+                String.format("42CREDIT NOTE FOR CUSTOMER %s INVOICE %s",
+                        new Object[]{customerId, invoice}));
+        header.setValue("COMP_CODE", "0140");
+        header.setValue("DOC_DATE", blDate);
+        header.setValue("PSTNG_DATE", sdf.format(new Date()));
+        header.setValue("DOC_TYPE", "DG");
+        header.setValue("REF_DOC_NO", invoice);
+
+        logger.log(Level.INFO, "BAPI_ACC_DOCUMENT_POST header set {0}.", header);
+
+        //ACCTOUNT GL
+        JCoTable accountGl = function.getTableParameterList().getTable("ACCOUNTGL");
+        accountGl.appendRow();
+        accountGl.setValue("ITEMNO_ACC", "001");
+        accountGl.setValue("GL_ACCOUNT", "0005140002");
+        accountGl.setValue("ITEM_TEXT",
+                String.format("CREDIT NOTE FOR CUSTOMER %s INVOICE %s",
+                        new Object[]{customerId, invoice}));
+        accountGl.setValue("DOC_TYPE", "DG");
+        accountGl.setValue("COMP_CODE", "0140");
+        accountGl.setValue("PSTNG_DATE", sdf.format(new Date()));
+        accountGl.setValue("VALUE_DATE", blDate);
+        accountGl.setValue("CUSTOMER", customerId);
+        accountGl.setValue("COSTCENTER", "C00214A000");
+        accountGl.setValue("ALLOC_NMBR", invoice);
+
+        logger.log(Level.INFO, "BAPI_ACC_DOCUMENT_POST Account GL set {0}.", accountGl);
+
+        //ACCOUNT RECEIVABLE
+        JCoTable accountReceivable = function.getTableParameterList().getTable("ACCOUNTRECEIVABLE");
+        accountReceivable.appendRow();
+        accountReceivable.setValue("ITEMNO_ACC", "002");
+        accountReceivable.setValue("CUSTOMER", customerId);
+        accountReceivable.setValue("ITEM_TEXT",
+                String.format("CREDIT NOTE FOR CUSTOMER %s INVOICE %s",
+                        new Object[]{customerId, invoice}));
+        accountReceivable.setValue("TAX_CODE", "V0");
+        accountReceivable.setValue("PMTMTHSUPL", "42");
+        accountReceivable.setValue("PYMT_METH", "L");
+
+        logger.log(Level.INFO, "BAPI_ACC_DOCUMENT_POST Account Receivable set {0}.", accountReceivable);
+
+        //CURRENCY AMOUNT
+        JCoTable currencyAmount = function.getTableParameterList().getTable("CURRENCYAMOUNT");
+        //Debit leg
+        currencyAmount.appendRow();
+        currencyAmount.setValue("ITEMNO_ACC", "001");
+        currencyAmount.setValue("CURRENCY", "USD.");
+        currencyAmount.setValue("AMT_DOCCUR", Math.abs(amount) * -1);
+
+        logger.log(Level.INFO, "BAPI_ACC_DOCUMENT_POST Debit CurrencyAmount set {0}.", currencyAmount);
+
+        //Credit leg
+        currencyAmount.appendRow();
+        currencyAmount.setValue("ITEMNO_ACC", "002");
+        currencyAmount.setValue("CURRENCY", "USD.");
+        currencyAmount.setValue("AMT_DOCCUR", Math.abs(amount));
+
+        logger.log(Level.INFO, "BAPI_ACC_DOCUMENT_POST Credit CurrencyAmount set {0}.", currencyAmount);
+
+        try {
+            function.execute(destination);
+        } catch (AbapException e) {
+            logger.log(Level.SEVERE, "Error executing BAPI_ACC_DOCUMENT_POST.");
+        }
+
+        JCoTable returnTable = function.getTableParameterList().getTable("RETURN");
+
+        StringBuilder sb = new StringBuilder();
+        boolean isError = false;
+
+        for (int i = 0; i < returnTable.getNumRows(); i++) {
+            if (!(returnTable.getString("TYPE").equals("") || returnTable.getString("TYPE").equals("S"))) {
+                isError = true;
+            }
+            sb.append(returnTable.getString("MESSAGE")).append("\n");
+        }
+
+        returnMessage = sb.toString();
+
+        if (isError) {
+            logger.log(Level.SEVERE, returnMessage);
+            throw new RuntimeException(returnMessage);
+        }
+
+        logger.log(Level.INFO, returnMessage);
+
+        return returnMessage;
     }
 
 }

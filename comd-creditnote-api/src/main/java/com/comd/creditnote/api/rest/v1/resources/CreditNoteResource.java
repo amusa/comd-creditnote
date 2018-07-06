@@ -1,6 +1,6 @@
 package com.comd.creditnote.api.rest.v1.resources;
 
-import com.comd.creditnote.api.infrastructure.jco.TestCreditNoteService;
+import com.comd.creditnote.lib.v1.request.PostCreditNoteRequest;
 import com.sap.conn.jco.JCoException;
 import com.comd.creditnote.api.services.CreditNoteService;
 import javax.enterprise.context.ApplicationScoped;
@@ -9,7 +9,8 @@ import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.text.ParseException;
-import org.eclipse.microprofile.faulttolerance.Fallback;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 @Path("/creditnote")
 @ApplicationScoped
@@ -17,31 +18,34 @@ import org.eclipse.microprofile.faulttolerance.Fallback;
 @Consumes(MediaType.APPLICATION_JSON)
 public class CreditNoteResource {
 
+    private static final Logger logger = Logger.getLogger(CreditNoteResource.class.getName());
+
     @Inject
     private CreditNoteService creditNoteService;
 
-    @Inject
-    TestCreditNoteService service;
+//    @Path("/post") 
+    @POST
+    public Response post(PostCreditNoteRequest creditNoteRequest) throws JCoException, ParseException {
 
-    @Fallback(fallbackMethod = "fallbackDelivery")
-    @GET
-    public Response delivery(@QueryParam("bldate") String blDate,
-            @QueryParam("vessel") String vesselId, @QueryParam("customer") String customerId) throws JCoException, ParseException {
-
-//        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-//        Date dateBl;
-//
-//        dateBl = sdf.parse(blDate);
-//        return Response.ok(creditNoteService.creditNotesOfDelivery(blDate, customerId))
-//                .header("X-Total-Count", 0).build();
-        return Response.ok(service.creditNotesOfDelivery(blDate, customerId))
-                .header("X-Total-Count", 0).build();
+        logger.log(Level.INFO,
+                "CreditNote Request received.  blDate={0}, vesselId={1}, customerId={2}, invoice={3}, amount={0}",
+                new Object[]{creditNoteRequest.getBlDate(),
+                    creditNoteRequest.getVesselId(),
+                    creditNoteRequest.getCustomerId(),
+                    creditNoteRequest.getInvoice(),
+                    creditNoteRequest.getAmount()});
+        
+        return Response.ok(
+                creditNoteService.post(
+                        creditNoteRequest.getBlDate(),
+                        creditNoteRequest.getVesselId(),
+                        creditNoteRequest.getCustomerId(),
+                        creditNoteRequest.getInvoice(),
+                        creditNoteRequest.getAmount())
+        )
+                .header("X-Total-Count", 0)
+                .build();
 
     }
 
-    public Response fallbackDelivery(@QueryParam("bldate") String blDate,
-            @QueryParam("vessel") String vesselId, @QueryParam("customer") String customerId) {
-        return Response.ok()
-                .header("X-Total-Count", 0).build();
-    }
 }

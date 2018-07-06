@@ -20,5 +20,7 @@ public interface CreditNoteService {
     List<CreditNote> creditNotesOfCustomer(String customerId) throws JCoException;
 
     void utilize(String documentNumber);
+    
+    String post(String blDate, String vesselId, String customerId, String invoice, double amount) throws JCoException;
 
 }
