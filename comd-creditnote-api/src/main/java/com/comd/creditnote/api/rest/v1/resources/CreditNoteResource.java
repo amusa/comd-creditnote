@@ -34,7 +34,7 @@ public class CreditNoteResource {
                     creditNoteRequest.getCustomerId(),
                     creditNoteRequest.getInvoice(),
                     creditNoteRequest.getAmount()});
-        
+
         return Response.ok(
                 creditNoteService.post(
                         creditNoteRequest.getBlDate(),
@@ -43,6 +43,30 @@ public class CreditNoteResource {
                         creditNoteRequest.getInvoice(),
                         creditNoteRequest.getAmount())
         )
+                .header("X-Total-Count", 0)
+                .build();
+
+    }
+
+    @GET    
+    public Response creditNoteOfDelivery(
+            @QueryParam("bldate") String blDate,
+            @QueryParam("customer") String customerId
+    ) throws JCoException {
+
+        return Response
+                .ok(creditNoteService.creditNoteOfDelivery(blDate, customerId))
+                .header("X-Total-Count", 0)
+                .build();
+
+    }
+
+    @GET
+    @Path("/customer/{customer}")
+    public Response creditNotesOfCustomer(@PathParam("customer") String customerId) throws JCoException {
+
+        return Response
+                .ok(creditNoteService.creditNotesOfCustomer(customerId))
                 .header("X-Total-Count", 0)
                 .build();
 

@@ -56,9 +56,13 @@
             <groupId>com.sap</groupId>
             <artifactId>sapjco3</artifactId>
             <version>3.0</version>
+        </dependency> 
+        <dependency>
+            <groupId>org.mongodb</groupId>
+            <artifactId>mongodb-driver</artifactId>
         </dependency>        
     </dependencies>
-    <dependencyManagement>
+<!--    <dependencyManagement>
         <dependencies>
             <dependency>
                 <groupId>javax</groupId>
@@ -74,7 +78,7 @@
                 <scope>import</scope>
             </dependency>
         </dependencies>
-    </dependencyManagement>
+    </dependencyManagement>-->
     
     <build>
         <finalName>comd-creditnote-api</finalName>

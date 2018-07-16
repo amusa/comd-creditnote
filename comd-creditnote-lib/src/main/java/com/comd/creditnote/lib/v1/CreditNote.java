@@ -14,6 +14,7 @@ import java.util.Date;
 public class CreditNote {
 
     private String creditNoteNo;
+    private String documentNo;
     private Date dateIssue;
     private String customer;
     private String invoiceNo;
@@ -66,6 +67,14 @@ public class CreditNote {
 
     public void setAmount(double amount) {
         this.amount = amount;
+    }
+
+    public String getDocumentNo() {
+        return documentNo;
+    }
+
+    public void setDocumentNo(String documentNo) {
+        this.documentNo = documentNo;
     }
 
 }

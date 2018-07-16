@@ -13,6 +13,7 @@ import com.sap.conn.jco.JCoFunction;
 import com.sap.conn.jco.JCoTable;
 import com.sap.conn.jco.ext.DestinationDataProvider;
 import com.comd.creditnote.api.services.CreditNoteService;
+import com.comd.creditnote.api.services.exceptions.EmptyPayloadException;
 import com.comd.creditnote.lib.v1.CreditNote;
 import com.sap.conn.jco.JCoContext;
 import com.sap.conn.jco.JCoStructure;
@@ -41,6 +42,9 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 public class JcoCreditNoteService implements CreditNoteService {
 
     private static final Logger logger = Logger.getLogger(JcoCreditNoteService.class.getName());
+
+    @Inject
+    private CreditNoteNumberGenerator generator;
 
     @Inject
     @ConfigProperty(name = "SAP_RFC_DESTINATION")
@@ -108,32 +112,16 @@ public class JcoCreditNoteService implements CreditNoteService {
     }
 
     @Override
-    public List<CreditNote> creditNotesOfDelivery(String blDate, String customerId) throws JCoException {
-        List<CreditNote> creditNotes = new ArrayList<>();
+    public CreditNote creditNoteOfDelivery(String blDate, String customerId) throws JCoException {
 
         JCoDestination destination = JCoDestinationManager.getDestination(sapRfcDestination);
-        JCoFunction function = destination.getRepository().getFunction("BAPI_ACC_DOCUMENT_POST");
+        JCoFunction function = destination.getRepository().getFunction("ZCREDITNOTE_GETDETAIL");
         if (function == null) {
-            throw new RuntimeException("BAPI_ACC_DOCUMENT_POST not found in SAP.");
+            throw new RuntimeException("ZCREDITNOTE_GETDETAIL not found in SAP.");
         }
 
-        if (customerId != null) {
-            new JCoTableSelectOption(function, "IT_KUNNR")
-                    .withField("CUSTOMER_VENDOR_LOW")
-                    .withValue(customerId)
-                    .withSign("I")
-                    .withOption("EQ")
-                    .build();
-        }
-
-        if (blDate != null) {
-            new JCoTableSelectOption(function, "IT_WADAT")
-                    .withField("CGI_DATE_LOW")
-                    .withValue(blDate)
-                    .withSign("I")
-                    .withOption("EQ")
-                    .build();
-        }
+        function.getImportParameterList().setValue("KUNNR", customerId);
+        function.getImportParameterList().setValue("BLDAT", blDate);
 
         try {
             function.execute(destination);
@@ -142,35 +130,82 @@ public class JcoCreditNoteService implements CreditNoteService {
             return null; //TODO:fix
         }
 
-        JCoTable returnTable = function.getTableParameterList().getTable("RETURN");
+//        JCoStructure returnStructure = function.getExportParameterList().getStructure("RETURN");
+//        if (!(returnStructure.getString("TYPE").equals("") || returnStructure.getString("TYPE").equals("S"))) {
+//            throw new RuntimeException(returnStructure.getString("MESSAGE"));
+//        }
+        JCoStructure creditNoteStructure = function.getExportParameterList().getStructure("CREDITNOTE");
 
-        for (int i = 0; i < returnTable.getNumRows(); i++) {
-            if (!(returnTable.getString("TYPE").equals("") || returnTable.getString("TYPE").equals("S"))) {
-                throw new RuntimeException(returnTable.getString("MESSAGE"));
-            }
-        }
+        CreditNote creditNote = new CreditNote();
+        creditNote.setCustomer(creditNoteStructure.getString("KUNNR"));
+        creditNote.setDocumentNo(creditNoteStructure.getString("BELNR"));
+        creditNote.setDateIssue(creditNoteStructure.getDate("BUDAT"));
+        creditNote.setBlDate(creditNoteStructure.getDate("BLDAT"));
+        creditNote.setInvoiceNo(creditNoteStructure.getString("VBELN"));
+        creditNote.setAmount(creditNoteStructure.getDouble("WRBTR"));
+        creditNote.setCreditNoteNo(creditNoteStructure.getString("SGTXT"));
 
-        JCoTable codes = function.getTableParameterList().getTable("ET_DELIVERY_HEADER");
-
-        for (int i = 0; i < codes.getNumRows(); i++, codes.nextRow()) {
-            CreditNote creditNote = new CreditNote();
-
-            creditNotes.add(creditNote);
-
-            System.out.println(codes.getString("VBELN") + '\t'
-                    + codes.getString("INCO2") + '\t'
-                    + codes.getString("KUNNR") + '\t'
-                    + codes.getString("WADAT_IST") + '\t'
-                    + codes.getString("WAERK") + '\t'
-                    + codes.getString("NETWR"));
-        }//for
-
-        return creditNotes;
+        return creditNote;
     }
 
     @Override
     public List<CreditNote> creditNotesOfCustomer(String customerId) throws JCoException {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        List<CreditNote> creditNotes = new ArrayList<>();
+
+        JCoDestination destination = JCoDestinationManager.getDestination(sapRfcDestination);
+        JCoFunction function = destination.getRepository().getFunction("ZCREDITNOTE_GETLIST");
+        if (function == null) {
+            throw new RuntimeException("ZCREDITNOTE_GETLIST not found in SAP.");
+        }
+
+        function.getImportParameterList().setValue("KUNNR", customerId);
+
+        try {
+            function.execute(destination);
+        } catch (AbapException e) {
+            System.out.println(e.toString());
+            return null; //TODO:fix
+        }
+
+//        JCoStructure returnStructure = function.getExportParameterList().getStructure("RETURN");
+//        if (!(returnStructure.getString("TYPE").equals("") || returnStructure.getString("TYPE").equals("S"))) {
+//            throw new RuntimeException(returnStructure.getString("MESSAGE"));
+//        }
+        JCoTable creditNoteTable = function.getTableParameterList().getTable("CREDITNOTES");
+
+        if (creditNoteTable.isEmpty()) {
+            logger.log(Level.WARNING, "No data returned from server");
+            throw new EmptyPayloadException("No data returned from server");
+        }
+
+        for (int i = 0; i < creditNoteTable.getNumRows(); i++, creditNoteTable.nextRow()) {
+            logger.log(Level.INFO,
+                    "CREDIT NOTE: CUSTOMER={0}, DOCNO={1}, PSTG DATE={2}, BL/DATE={3}, BILLING DOC={4}, AMOUNT={5}, CREDITNOTE NO={6}",
+                    new Object[]{
+                        creditNoteTable.getString("KUNNR"),
+                        creditNoteTable.getString("BELNR"),
+                        creditNoteTable.getDate("BUDAT"),
+                        creditNoteTable.getDate("BLDAT"),
+                        creditNoteTable.getString("VBELN"),
+                        creditNoteTable.getDouble("WRBTR"),
+                        creditNoteTable.getString("SGTXT")
+                    }
+            );
+
+            CreditNote creditNote = new CreditNote();
+            creditNote.setCustomer(creditNoteTable.getString("KUNNR"));
+            creditNote.setDocumentNo(creditNoteTable.getString("BELNR"));
+            creditNote.setDateIssue(creditNoteTable.getDate("BUDAT"));
+            creditNote.setBlDate(creditNoteTable.getDate("BLDAT"));
+            creditNote.setInvoiceNo(creditNoteTable.getString("VBELN"));
+            creditNote.setAmount(creditNoteTable.getDouble("WRBTR"));
+            creditNote.setCreditNoteNo(creditNoteTable.getString("SGTXT"));
+
+            creditNotes.add(creditNote);
+        }
+
+        return creditNotes;
+
     }
 
     @Override
@@ -197,12 +232,14 @@ public class JcoCreditNoteService implements CreditNoteService {
 
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
 
+        String creditNoteNo = generator.nextNumber();
+
         //HEADER
         JCoStructure header = function.getImportParameterList().getStructure("DOCUMENTHEADER");
         header.setValue("USERNAME", "amusa"); //TODO:use login user name
         header.setValue("HEADER_TXT",
-                String.format("42CREDIT NOTE FOR CUSTOMER %s INVOICE %s",
-                        new Object[]{customerId, invoice}));
+                String.format("42CREDITNOTE FOR INVOICE %s",
+                        invoice));
         header.setValue("COMP_CODE", "0140");
         header.setValue("DOC_DATE", blDate);
         header.setValue("PSTNG_DATE", sdf.format(new Date()));
@@ -216,9 +253,7 @@ public class JcoCreditNoteService implements CreditNoteService {
         accountGl.appendRow();
         accountGl.setValue("ITEMNO_ACC", "001");
         accountGl.setValue("GL_ACCOUNT", "0005140002");
-        accountGl.setValue("ITEM_TEXT",
-                String.format("CREDIT NOTE FOR CUSTOMER %s INVOICE %s",
-                        new Object[]{customerId, invoice}));
+        accountGl.setValue("ITEM_TEXT", creditNoteNo);
         accountGl.setValue("DOC_TYPE", "DG");
         accountGl.setValue("COMP_CODE", "0140");
         accountGl.setValue("PSTNG_DATE", sdf.format(new Date()));
@@ -234,9 +269,7 @@ public class JcoCreditNoteService implements CreditNoteService {
         accountReceivable.appendRow();
         accountReceivable.setValue("ITEMNO_ACC", "002");
         accountReceivable.setValue("CUSTOMER", customerId);
-        accountReceivable.setValue("ITEM_TEXT",
-                String.format("CREDIT NOTE FOR CUSTOMER %s INVOICE %s",
-                        new Object[]{customerId, invoice}));
+        accountReceivable.setValue("ITEM_TEXT", creditNoteNo);
         accountReceivable.setValue("TAX_CODE", "V0");
         accountReceivable.setValue("PMTMTHSUPL", "42");
         accountReceivable.setValue("PYMT_METH", "L");
