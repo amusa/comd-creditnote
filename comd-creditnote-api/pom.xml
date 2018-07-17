@@ -62,27 +62,10 @@
             <artifactId>mongodb-driver</artifactId>
         </dependency>        
     </dependencies>
-<!--    <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>javax</groupId>
-                <artifactId>javaee-api</artifactId>
-                <version>7.0</version>
-                <scope>provided</scope>
-            </dependency>
-            <dependency>
-                <groupId>org.wildfly.swarm</groupId>
-                <artifactId>bom-all</artifactId>
-                <version>${version.wildfly-swarm}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>-->
     
     <build>
-        <finalName>comd-creditnote-api</finalName>
-        <plugins>
+        <finalName>comd-creditnote-api</finalName>        
+        <plugins>              
             <plugin>
                 <groupId>org.wildfly.swarm</groupId>
                 <artifactId>wildfly-swarm-plugin</artifactId>
@@ -101,7 +84,7 @@
                     </properties>
                 </configuration>
             </plugin>
-            <plugin>
+            <!--            <plugin>
                 <groupId>io.fabric8</groupId>
                 <artifactId>docker-maven-plugin</artifactId>
                 <version>0.26.0</version>                
@@ -128,10 +111,10 @@
                             </build>
                             <run>
                                 <ports>
-                                    <!-- Map container port 8080 to a dynamical port -->
+                                     Map container port 8080 to a dynamical port 
                                     <port>${swarm.port}:8085</port>
                                 </ports>
-                                <!--                                <env>
+                                                                <env>
                                     <COUCHBASE_URI>${docker.host.address}</COUCHBASE_URI>
                                 </env>
                                 <wait>
@@ -140,7 +123,7 @@
                                         <status>200</status>
                                     </http>
                                     <time>60000</time>
-                                </wait>-->
+                                </wait>
                                 <log>
                                     <color>yellow</color>
                                     <prefix>SWARM</prefix>
@@ -166,7 +149,7 @@
                         </goals>
                     </execution>
                 </executions>                
-            </plugin>
+            </plugin>-->
         </plugins>
     </build>
    

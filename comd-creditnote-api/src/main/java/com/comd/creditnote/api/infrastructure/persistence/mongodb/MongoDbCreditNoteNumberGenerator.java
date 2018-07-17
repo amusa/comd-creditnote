@@ -7,15 +7,14 @@ package com.comd.creditnote.api.infrastructure.persistence.mongodb;
 
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
-import static com.mongodb.client.model.Filters.and;
-import static com.mongodb.client.model.Filters.eq;
 import com.mongodb.client.model.UpdateOptions;
-import com.mongodb.client.model.Updates;
 import java.time.Year;
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
 import org.bson.Document;
 import com.comd.creditnote.api.infrastructure.jco.CreditNoteNumberGenerator;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
@@ -23,6 +22,8 @@ import com.comd.creditnote.api.infrastructure.jco.CreditNoteNumberGenerator;
  */
 @ApplicationScoped
 public class MongoDbCreditNoteNumberGenerator implements CreditNoteNumberGenerator {
+
+    private static final Logger logger = Logger.getLogger(MongoDbCreditNoteNumberGenerator.class.getName());
 
     @Inject
     MongoDatabase mongoDb;
@@ -32,6 +33,8 @@ public class MongoDbCreditNoteNumberGenerator implements CreditNoteNumberGenerat
         Document doc = seriesCollection()
                 .find()
                 .first();
+
+        logger.log(Level.INFO, "Find serial counter finished: {0}", doc);
 
         Integer fiscalYear;
         Integer serialNumber;
@@ -44,7 +47,9 @@ public class MongoDbCreditNoteNumberGenerator implements CreditNoteNumberGenerat
             serialNumber = doc.getInteger("serialNumber");
             Integer currentYear = getCurrentYear();
 
-            if (fiscalYear == currentYear) {
+            logger.log(Level.INFO, "FiscalYear={0}, CurrentYear={1}", new Object[]{fiscalYear, currentYear});
+
+            if (fiscalYear.equals(currentYear)) {
                 serialNumber++;
             } else if (fiscalYear < currentYear) {
                 serialNumber = 1;
@@ -54,7 +59,8 @@ public class MongoDbCreditNoteNumberGenerator implements CreditNoteNumberGenerat
             }
         }
 
-        //seriesCollection().updateOne(doc, Updates.set("likes", 150));
+        logger.log(Level.INFO, "Updating serial counter: fiscalYear={0}, serialNumber={1}", new Object[]{fiscalYear, serialNumber});
+
         seriesCollection().updateOne(
                 new Document(),
                 new Document("$set",
@@ -63,7 +69,11 @@ public class MongoDbCreditNoteNumberGenerator implements CreditNoteNumberGenerat
                 ),
                 new UpdateOptions().upsert(true));
 
-        return formatCreditNote(fiscalYear, serialNumber);
+        String cNote = formatCreditNote(fiscalYear, serialNumber);
+
+        logger.log(Level.INFO, "Returning Credit Note number: {0}", cNote);
+
+        return cNote;
     }
 
     private MongoCollection<Document> seriesCollection() {
