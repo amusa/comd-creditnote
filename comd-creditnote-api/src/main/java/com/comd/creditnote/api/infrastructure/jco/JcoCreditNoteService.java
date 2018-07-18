@@ -141,7 +141,7 @@ public class JcoCreditNoteService implements CreditNoteService {
         creditNote.setDocumentNo(creditNoteStructure.getString("BELNR"));
         creditNote.setDateIssue(creditNoteStructure.getDate("BUDAT"));
         creditNote.setBlDate(creditNoteStructure.getDate("BLDAT"));
-        creditNote.setInvoiceNo(creditNoteStructure.getString("VBELN"));
+        creditNote.setInvoiceNo(creditNoteStructure.getString("XBLNR"));
         creditNote.setAmount(creditNoteStructure.getDouble("WRBTR"));
         creditNote.setCreditNoteNo(creditNoteStructure.getString("SGTXT"));
 
@@ -186,7 +186,7 @@ public class JcoCreditNoteService implements CreditNoteService {
                         creditNoteTable.getString("BELNR"),
                         creditNoteTable.getDate("BUDAT"),
                         creditNoteTable.getDate("BLDAT"),
-                        creditNoteTable.getString("VBELN"),
+                        creditNoteTable.getString("XBLNR"),
                         creditNoteTable.getDouble("WRBTR"),
                         creditNoteTable.getString("SGTXT")
                     }
@@ -197,7 +197,7 @@ public class JcoCreditNoteService implements CreditNoteService {
             creditNote.setDocumentNo(creditNoteTable.getString("BELNR"));
             creditNote.setDateIssue(creditNoteTable.getDate("BUDAT"));
             creditNote.setBlDate(creditNoteTable.getDate("BLDAT"));
-            creditNote.setInvoiceNo(creditNoteTable.getString("VBELN"));
+            creditNote.setInvoiceNo(creditNoteTable.getString("XBLNR"));
             creditNote.setAmount(creditNoteTable.getDouble("WRBTR"));
             creditNote.setCreditNoteNo(creditNoteTable.getString("SGTXT"));
 
