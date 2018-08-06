@@ -1,0 +1,10 @@
+{
+  "realm": "comd",
+  "auth-server-url": "http://localhost:8080/auth",
+  "ssl-required": "external",
+  "resource": "creditNoteWeb",
+  "credentials": {
+    "secret": "e738b721-3a0a-4c6b-bd61-f8575159cf42"
+  },
+  "confidential-port": 0
+}
