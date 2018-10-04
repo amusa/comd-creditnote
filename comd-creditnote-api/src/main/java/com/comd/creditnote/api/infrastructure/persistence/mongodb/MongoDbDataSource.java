@@ -26,8 +26,8 @@ public class MongoDbDataSource {
 //    @Inject
 //    Properties mongoDbProperties;
     @Inject
-    @ConfigProperty(name = "mongodb.url")
-    String dbURIString;
+    @ConfigProperty(name = "mongodb.host")
+    String dbHost;
 
     @Inject
     @ConfigProperty(name = "mongodb.db")
@@ -35,12 +35,12 @@ public class MongoDbDataSource {
 
     @PostConstruct
     private void initProperties() {
-//        String dbURIString = mongoDbProperties.getProperty("mongodb.url");
+        String dbUrl = String.format("mongodb://%s", dbHost);
 //        String db = mongoDbProperties.getProperty("mongodb.db");
 
-        logger.log(Level.INFO, "--- Initializing Datasource ---\nDB_URL={0}, DB={1}", new Object[]{dbURIString, db});
+        logger.log(Level.INFO, "--- Initializing Datasource ---\nDB_URL={0}, DB={1}", new Object[]{dbUrl, db});
 
-        MongoClient mongoClient = new MongoClient(new MongoClientURI(dbURIString));
+        MongoClient mongoClient = new MongoClient(new MongoClientURI(dbUrl));
         mongoDb = mongoClient.getDatabase(db);
 
         logger.log(Level.INFO, "Datasource initialized");
