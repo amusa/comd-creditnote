@@ -14,6 +14,7 @@ import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.enterprise.context.RequestScoped;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 @ApplicationScoped
 public class MongoDbDataSource {
@@ -21,19 +22,27 @@ public class MongoDbDataSource {
     private MongoDatabase mongoDb;
     private static final Logger logger = Logger.getLogger(MongoDbDataSource.class.getName());
 
-    @MONGODB
+//    @MONGODB
+//    @Inject
+//    Properties mongoDbProperties;
     @Inject
-    Properties mongoDbProperties;
+    @ConfigProperty(name = "mongodb.url")
+    String dbURIString;
+
+    @Inject
+    @ConfigProperty(name = "mongodb.db")
+    String db;
 
     @PostConstruct
     private void initProperties() {
-        logger.log(Level.INFO, "Initializing Datasource...");
-       
-        String dbURIString = mongoDbProperties.getProperty("mongodb.url");
-        String db = mongoDbProperties.getProperty("mongodb.db");
+//        String dbURIString = mongoDbProperties.getProperty("mongodb.url");
+//        String db = mongoDbProperties.getProperty("mongodb.db");
+
+        logger.log(Level.INFO, "--- Initializing Datasource ---\nDB_URL={0}, DB={1}", new Object[]{dbURIString, db});
+
         MongoClient mongoClient = new MongoClient(new MongoClientURI(dbURIString));
         mongoDb = mongoClient.getDatabase(db);
-        
+
         logger.log(Level.INFO, "Datasource initialized");
     }
 
