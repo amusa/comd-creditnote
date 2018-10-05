@@ -38,7 +38,7 @@ public class MongoDbDataSource {
         String dbUrl = String.format("mongodb://%s", dbHost);
 //        String db = mongoDbProperties.getProperty("mongodb.db");
 
-        logger.log(Level.INFO, "--- Initializing Datasource ---\nDB_URL={0}, DB={1}", new Object[]{dbUrl, db});
+        logger.log(Level.INFO, "--- Initializing Datasource ---\nDB_HOST={0}, DB_URL={1}, DB={2}", new Object[]{dbHost, dbUrl, db});
 
         MongoClient mongoClient = new MongoClient(new MongoClientURI(dbUrl));
         mongoDb = mongoClient.getDatabase(db);
