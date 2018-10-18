@@ -15,7 +15,7 @@ import java.util.List;
  */
 public interface CreditNoteService {
 
-    CreditNote creditNoteOfDelivery(String blDate, String customerId) throws JCoException;
+    CreditNote creditNoteOfDelivery(String blDate, String customerId, String invoiceNo) throws JCoException;
 
     List<CreditNote> creditNotesOfCustomer(String customerId) throws JCoException;
 

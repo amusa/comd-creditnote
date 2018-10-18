@@ -48,14 +48,15 @@ public class CreditNoteResource {
 
     }
 
-    @GET    
+    @GET
     public Response creditNoteOfDelivery(
             @QueryParam("bldate") String blDate,
-            @QueryParam("customer") String customerId
+            @QueryParam("customer") String customerId,
+            @QueryParam("invoice") String invoiceNo
     ) throws JCoException {
 
         return Response
-                .ok(creditNoteService.creditNoteOfDelivery(blDate, customerId))
+                .ok(creditNoteService.creditNoteOfDelivery(blDate, customerId, invoiceNo))
                 .header("X-Total-Count", 0)
                 .build();
 

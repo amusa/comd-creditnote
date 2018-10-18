@@ -13,6 +13,7 @@ import com.sap.conn.jco.JCoFunction;
 import com.sap.conn.jco.JCoTable;
 import com.sap.conn.jco.ext.DestinationDataProvider;
 import com.comd.creditnote.api.services.CreditNoteService;
+import com.comd.creditnote.api.services.exceptions.DupicateCreditnoteException;
 import com.comd.creditnote.api.services.exceptions.EmptyPayloadException;
 import com.comd.creditnote.lib.v1.CreditNote;
 import com.sap.conn.jco.JCoContext;
@@ -112,7 +113,7 @@ public class JcoCreditNoteService implements CreditNoteService {
     }
 
     @Override
-    public CreditNote creditNoteOfDelivery(String blDate, String customerId) throws JCoException {
+    public CreditNote creditNoteOfDelivery(String blDate, String customerId, String invoiceNo) throws JCoException {
 
         JCoDestination destination = JCoDestinationManager.getDestination(sapRfcDestination);
         JCoFunction function = destination.getRepository().getFunction("ZCREDITNOTE_GETDETAIL");
@@ -122,6 +123,7 @@ public class JcoCreditNoteService implements CreditNoteService {
 
         function.getImportParameterList().setValue("KUNNR", customerId);
         function.getImportParameterList().setValue("BLDAT", blDate);
+        function.getImportParameterList().setValue("REF_DOC", invoiceNo);
 
         try {
             function.execute(destination);
@@ -219,6 +221,17 @@ public class JcoCreditNoteService implements CreditNoteService {
                 "Service invoked with parameters: blDate={0}, vesselId={1}, customerId={2}, Invoice#={3}, Amount={4}",
                 new Object[]{blDate, vesselId, customerId, invoice, amount});
 
+        logger.log(Level.INFO, "-- checking creditnote duplicity ---");
+
+        CreditNote creditNote = creditNoteOfDelivery(blDate, customerId, invoice);
+        if (creditNote != null) {
+            logger.log(Level.INFO,
+                    "--- creditnote already exist for customer: {0}, B/L date: {2} and Invoice#: {3}",
+                    new Object[]{customerId, blDate, invoice});
+
+            throw new DupicateCreditnoteException(blDate, customerId, invoice);
+        }
+
         String returnMessage = null;
         JCoDestination destination = JCoDestinationManager.getDestination(sapRfcDestination);
         JCoFunction function = destination.getRepository().getFunction("BAPI_ACC_DOCUMENT_POST");
@@ -236,7 +249,7 @@ public class JcoCreditNoteService implements CreditNoteService {
 
         //HEADER
         JCoStructure header = function.getImportParameterList().getStructure("DOCUMENTHEADER");
-        header.setValue("USERNAME", "amusa"); //TODO:use login user name
+        header.setValue("USERNAME", jcoUser); //TODO:use login user name
         header.setValue("HEADER_TXT",
                 String.format("42CREDITNOTE FOR INVOICE %s",
                         invoice));
