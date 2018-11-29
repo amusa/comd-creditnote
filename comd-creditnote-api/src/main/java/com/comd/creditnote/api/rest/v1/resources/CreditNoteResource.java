@@ -28,7 +28,7 @@ public class CreditNoteResource {
     public Response post(PostCreditNoteRequest creditNoteRequest) throws JCoException, ParseException {
 
         logger.log(Level.INFO,
-                "CreditNote Request received.  blDate={0}, vesselId={1}, customerId={2}, invoice={3}, amount={0}",
+                "CreditNote Request received.  blDate={0}, vesselId={1}, customerId={2}, invoice={3}, amount={4}",
                 new Object[]{creditNoteRequest.getBlDate(),
                     creditNoteRequest.getVesselId(),
                     creditNoteRequest.getCustomerId(),

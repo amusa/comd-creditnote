@@ -114,7 +114,8 @@ public class JcoCreditNoteService implements CreditNoteService {
 
     @Override
     public CreditNote creditNoteOfDelivery(String blDate, String customerId, String invoiceNo) throws JCoException {
-
+        logger.log(Level.INFO, "--- checking creditnote for customer: {0}, B/L Date: {1} and Invoice:{2}",
+                new Object[]{customerId, blDate, invoiceNo});
         JCoDestination destination = JCoDestinationManager.getDestination(sapRfcDestination);
         JCoFunction function = destination.getRepository().getFunction("ZCREDITNOTE_GETDETAIL");
         if (function == null) {
@@ -129,7 +130,7 @@ public class JcoCreditNoteService implements CreditNoteService {
             function.execute(destination);
         } catch (AbapException e) {
             System.out.println(e.toString());
-            return null; //TODO:fix
+            throw new RuntimeException(e);
         }
 
 //        JCoStructure returnStructure = function.getExportParameterList().getStructure("RETURN");
@@ -138,6 +139,7 @@ public class JcoCreditNoteService implements CreditNoteService {
 //        }
         JCoStructure creditNoteStructure = function.getExportParameterList().getStructure("CREDITNOTE");
 
+        //TODO: VALIDATE DATA RETURNED
         CreditNote creditNote = new CreditNote();
         creditNote.setCustomer(creditNoteStructure.getString("KUNNR"));
         creditNote.setDocumentNo(creditNoteStructure.getString("BELNR"));
@@ -146,6 +148,12 @@ public class JcoCreditNoteService implements CreditNoteService {
         creditNote.setInvoiceNo(creditNoteStructure.getString("XBLNR"));
         creditNote.setAmount(creditNoteStructure.getDouble("WRBTR"));
         creditNote.setCreditNoteNo(creditNoteStructure.getString("SGTXT"));
+
+        if (creditNote.getCustomer() == null || creditNote.getCustomer() == "") {
+            logger.log(Level.INFO, "--- No creditnote for customer: {0}, B/L Date: {1} and Invoice:{2}",
+                    new Object[]{customerId, blDate, invoiceNo});
+            return null;
+        }
 
         return creditNote;
     }
@@ -224,13 +232,16 @@ public class JcoCreditNoteService implements CreditNoteService {
         logger.log(Level.INFO, "-- checking creditnote duplicity ---");
 
         CreditNote creditNote = creditNoteOfDelivery(blDate, customerId, invoice);
+
         if (creditNote != null) {
             logger.log(Level.INFO,
-                    "--- creditnote already exist for customer: {0}, B/L date: {2} and Invoice#: {3}",
+                    "--- creditnote already exist for customer: {0}, B/L date: {1} and Invoice#: {2}",
                     new Object[]{customerId, blDate, invoice});
 
             throw new DupicateCreditnoteException(blDate, customerId, invoice);
         }
+
+        logger.log(Level.INFO, "--- creditnote duplicate check passed! posting creditnote ---");
 
         String returnMessage = null;
         JCoDestination destination = JCoDestinationManager.getDestination(sapRfcDestination);
@@ -331,7 +342,10 @@ public class JcoCreditNoteService implements CreditNoteService {
         StringBuilder sb = new StringBuilder();
         boolean isError = false;
 
+        logger.log(Level.INFO, "--- RETURN MESSAGE(S) ---");
+        
         for (int i = 0; i < returnTable.getNumRows(); i++) {
+            logger.log(Level.INFO, "--- {0} ---", returnTable.getString("MESSAGE"));
             if (!(returnTable.getString("TYPE").equals("") || returnTable.getString("TYPE").equals("S"))) {
                 isError = true;
             }
