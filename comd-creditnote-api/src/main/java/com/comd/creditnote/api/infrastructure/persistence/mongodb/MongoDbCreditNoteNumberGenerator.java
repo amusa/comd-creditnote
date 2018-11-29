@@ -15,6 +15,7 @@ import org.bson.Document;
 import com.comd.creditnote.api.infrastructure.jco.CreditNoteNumberGenerator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 /**
  *
@@ -27,6 +28,10 @@ public class MongoDbCreditNoteNumberGenerator implements CreditNoteNumberGenerat
 
     @Inject
     MongoDatabase mongoDb;
+
+    @Inject
+    @ConfigProperty(name = "creditnote_series_start")
+    private String creditNoteSeriesStart;
 
     @Override
     public String nextNumber() {
@@ -41,7 +46,11 @@ public class MongoDbCreditNoteNumberGenerator implements CreditNoteNumberGenerat
 
         if (null == doc) {
             fiscalYear = getCurrentYear();
-            serialNumber = 1;
+            if (creditNoteSeriesStart == null) {
+                serialNumber = 1;
+            } else {
+                serialNumber = Integer.parseInt(creditNoteSeriesStart);
+            }
         } else {
             fiscalYear = doc.getInteger("fiscalYear");
             serialNumber = doc.getInteger("serialNumber");
