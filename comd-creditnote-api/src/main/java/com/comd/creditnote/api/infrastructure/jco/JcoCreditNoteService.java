@@ -272,8 +272,10 @@ public class JcoCreditNoteService implements CreditNoteService {
         accountGl.setValue("PSTNG_DATE", sdf.format(new Date()));
         accountGl.setValue("VALUE_DATE", blDate);
         accountGl.setValue("CUSTOMER", customerId);
-        accountGl.setValue("COSTCENTER", "C00214A000");
+        //accountGl.setValue("COSTCENTER", "C00214A000");
+        //accountGl.setValue("PROFIT_CTR", "P002147001");
         accountGl.setValue("ALLOC_NMBR", invoice);
+        accountGl.setValue("TAX_CODE", "V0");
 
         logger.log(Level.INFO, "BAPI_ACC_DOCUMENT_POST Account GL set {0}.", accountGl);
 
@@ -286,6 +288,7 @@ public class JcoCreditNoteService implements CreditNoteService {
         accountReceivable.setValue("TAX_CODE", "V0");
         accountReceivable.setValue("PMTMTHSUPL", "42");
         accountReceivable.setValue("PYMT_METH", "L");
+        //accountReceivable.setValue("PROFIT_CTR", "P002147001");
 
         logger.log(Level.INFO, "BAPI_ACC_DOCUMENT_POST Account Receivable set {0}.", accountReceivable);
 
